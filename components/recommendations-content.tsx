@@ -1,19 +1,22 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { usePredictions } from "@/hooks/use-predictions"
+import { useRecommendations, usePredictions } from "@/hooks/use-predictions"
 import { Spinner } from "@/components/ui/spinner"
 import { TrendingUp, Percent, Pause, CheckCircle2, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-type FilterType = "all" | "increase_stock" | "promotion" | "hold"
+type FilterType = "all" | "increase_stock" | "promotion" | "maintain"
 
 export function RecommendationsContent() {
-  const { predictions, isLoading } = usePredictions()
+  const { teams, isLoading: teamsLoading } = usePredictions()
+  const { recommendations, isLoading: recsLoading, applyRecommendation, refresh } = useRecommendations()
   const [filter, setFilter] = useState<FilterType>("all")
-  const [appliedActions, setAppliedActions] = useState<Set<string>>(new Set())
+  const [applying, setApplying] = useState<string | null>(null)
+
+  const isLoading = teamsLoading || recsLoading
 
   if (isLoading) {
     return (
@@ -23,31 +26,34 @@ export function RecommendationsContent() {
     )
   }
 
-  const filteredPredictions = filter === "all"
-    ? predictions
-    : predictions.filter(p => p.recommendation === filter)
+  const filteredRecs = filter === "all"
+    ? recommendations
+    : recommendations.filter((r: { action: string }) => r.action === filter)
 
-  const increaseCount = predictions.filter(p => p.recommendation === "increase_stock").length
-  const promotionCount = predictions.filter(p => p.recommendation === "promotion").length
-  const holdCount = predictions.filter(p => p.recommendation === "hold").length
+  const increaseCount = recommendations.filter((r: { action: string }) => r.action === "increase_stock").length
+  const promotionCount = recommendations.filter((r: { action: string }) => r.action === "promotion").length
+  const maintainCount = recommendations.filter((r: { action: string }) => r.action === "maintain").length
 
-  const handleApplyAction = (teamId: string) => {
-    setAppliedActions(prev => new Set([...prev, teamId]))
+  const handleApplyAction = async (recId: string, currentApplied: boolean) => {
+    setApplying(recId)
+    await applyRecommendation(recId, !currentApplied)
+    await refresh()
+    setApplying(null)
   }
 
-  const getRecommendationIcon = (rec: string) => {
-    switch (rec) {
+  const getRecommendationIcon = (action: string) => {
+    switch (action) {
       case "increase_stock":
-        return <TrendingUp className="h-5 w-5 text-green-600" />
+        return <TrendingUp className="h-5 w-5 text-accent" />
       case "promotion":
         return <Percent className="h-5 w-5 text-orange-600" />
       default:
-        return <Pause className="h-5 w-5 text-gray-600" />
+        return <Pause className="h-5 w-5 text-muted-foreground" />
     }
   }
 
-  const getRecommendationLabel = (rec: string) => {
-    switch (rec) {
+  const getRecommendationLabel = (action: string) => {
+    switch (action) {
       case "increase_stock":
         return "Aumentar Stock"
       case "promotion":
@@ -57,15 +63,19 @@ export function RecommendationsContent() {
     }
   }
 
-  const getRecommendationStyle = (rec: string) => {
-    switch (rec) {
+  const getRecommendationStyle = (action: string) => {
+    switch (action) {
       case "increase_stock":
-        return "border-green-200 bg-green-50/50"
+        return "border-accent/30 bg-accent/5"
       case "promotion":
         return "border-orange-200 bg-orange-50/50"
       default:
-        return "border-gray-200 bg-gray-50/50"
+        return "border-muted bg-muted/30"
     }
+  }
+
+  const getTeamData = (teamId: string) => {
+    return teams.find(t => t.id === teamId)
   }
 
   return (
@@ -83,13 +93,13 @@ export function RecommendationsContent() {
         <Card
           className={cn(
             "cursor-pointer transition-all hover:shadow-md",
-            filter === "increase_stock" && "ring-2 ring-green-500"
+            filter === "increase_stock" && "ring-2 ring-accent"
           )}
           onClick={() => setFilter(filter === "increase_stock" ? "all" : "increase_stock")}
         >
           <CardContent className="flex items-center gap-4 py-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-              <TrendingUp className="h-6 w-6 text-green-600" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/20">
+              <TrendingUp className="h-6 w-6 text-accent" />
             </div>
             <div>
               <p className="text-2xl font-bold text-foreground">{increaseCount}</p>
@@ -119,16 +129,16 @@ export function RecommendationsContent() {
         <Card
           className={cn(
             "cursor-pointer transition-all hover:shadow-md",
-            filter === "hold" && "ring-2 ring-gray-500"
+            filter === "maintain" && "ring-2 ring-muted-foreground"
           )}
-          onClick={() => setFilter(filter === "hold" ? "all" : "hold")}
+          onClick={() => setFilter(filter === "maintain" ? "all" : "maintain")}
         >
           <CardContent className="flex items-center gap-4 py-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-              <Pause className="h-6 w-6 text-gray-600" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+              <Pause className="h-6 w-6 text-muted-foreground" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-foreground">{holdCount}</p>
+              <p className="text-2xl font-bold text-foreground">{maintainCount}</p>
               <p className="text-sm text-muted-foreground">Mantener Stock</p>
             </div>
           </CardContent>
@@ -150,21 +160,24 @@ export function RecommendationsContent() {
 
       {/* Recommendations List */}
       <div className="space-y-4">
-        {filteredPredictions.map((prediction) => {
-          const isApplied = appliedActions.has(prediction.id)
+        {filteredRecs.map((rec: { id: string; team_id: string; action: string; reason: string | null; applied: boolean; teams: { name: string; code: string } }) => {
+          const teamData = getTeamData(rec.team_id)
+          const isApplying = applying === rec.id
 
           return (
-            <Card key={prediction.id} className={cn("transition-all", getRecommendationStyle(prediction.recommendation))}>
+            <Card key={rec.id} className={cn("transition-all", getRecommendationStyle(rec.action))}>
               <CardContent className="py-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   {/* Team Info */}
                   <div className="flex items-center gap-4">
-                    <span className="text-4xl">{prediction.flag_emoji}</span>
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-lg font-bold text-muted-foreground">
+                      {rec.teams?.code || '??'}
+                    </div>
                     <div>
-                      <h3 className="font-semibold text-foreground">{prediction.team}</h3>
+                      <h3 className="font-semibold text-foreground">{rec.teams?.name || 'Equipo'}</h3>
                       <p className="text-sm text-muted-foreground">
-                        Prob. Cuartos: {Math.round(prediction.probability_advance_quarters * 100)}% | 
-                        Stock actual: {prediction.current_stock} unidades
+                        Prob. Cuartos: {Math.round((teamData?.prediction?.probability_quarterfinals ?? 0) * 100)}% | 
+                        Stock actual: {teamData?.inventory?.current_stock ?? 0} unidades
                       </p>
                     </div>
                   </div>
@@ -172,29 +185,40 @@ export function RecommendationsContent() {
                   {/* Recommendation */}
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
-                      {getRecommendationIcon(prediction.recommendation)}
+                      {getRecommendationIcon(rec.action)}
                       <div className="text-right">
                         <p className="font-medium text-foreground">
-                          {getRecommendationLabel(prediction.recommendation)}
+                          {getRecommendationLabel(rec.action)}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {prediction.recommendation === "increase_stock" && "+50-100 unidades"}
-                          {prediction.recommendation === "promotion" && "15-30% descuento"}
-                          {prediction.recommendation === "hold" && "Sin cambios"}
+                          {rec.action === "increase_stock" && "+50-100 unidades"}
+                          {rec.action === "promotion" && "15-30% descuento"}
+                          {rec.action === "maintain" && "Sin cambios"}
                         </p>
                       </div>
                     </div>
 
-                    {isApplied ? (
-                      <div className="flex items-center gap-2 rounded-lg bg-green-100 px-4 py-2 text-green-700">
-                        <CheckCircle2 className="h-4 w-4" />
-                        <span className="text-sm font-medium">Aplicado</span>
-                      </div>
+                    {rec.applied ? (
+                      <Button
+                        variant="outline"
+                        className="border-accent bg-accent/10 text-accent hover:bg-accent/20"
+                        onClick={() => handleApplyAction(rec.id, rec.applied)}
+                        disabled={isApplying}
+                      >
+                        {isApplying ? (
+                          <Spinner className="mr-2 h-4 w-4" />
+                        ) : (
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                        )}
+                        Aplicado
+                      </Button>
                     ) : (
                       <Button
-                        variant={prediction.recommendation === "increase_stock" ? "default" : "outline"}
-                        onClick={() => handleApplyAction(prediction.id)}
+                        variant={rec.action === "increase_stock" ? "default" : "outline"}
+                        onClick={() => handleApplyAction(rec.id, rec.applied)}
+                        disabled={isApplying}
                       >
+                        {isApplying && <Spinner className="mr-2 h-4 w-4" />}
                         Aplicar
                       </Button>
                     )}
@@ -202,17 +226,19 @@ export function RecommendationsContent() {
                 </div>
 
                 {/* Reason */}
-                <div className="mt-3 flex items-start gap-2 rounded-lg bg-background/50 p-3">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">{prediction.recommendation_reason}</p>
-                </div>
+                {rec.reason && (
+                  <div className="mt-3 flex items-start gap-2 rounded-lg bg-background/50 p-3">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">{rec.reason}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )
         })}
       </div>
 
-      {filteredPredictions.length === 0 && (
+      {filteredRecs.length === 0 && (
         <div className="py-12 text-center">
           <p className="text-muted-foreground">No hay recomendaciones en esta categoria.</p>
         </div>

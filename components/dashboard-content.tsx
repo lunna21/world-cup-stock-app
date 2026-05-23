@@ -18,7 +18,7 @@ import {
 } from "recharts"
 
 export function DashboardContent() {
-  const { predictions, lastUpdated, isLoading, refresh } = usePredictions()
+  const { teams, lastUpdated, isLoading, refresh } = usePredictions()
 
   if (isLoading) {
     return (
@@ -28,26 +28,29 @@ export function DashboardContent() {
     )
   }
 
-  const increaseStock = predictions.filter(p => p.recommendation === "increase_stock")
-  const promotion = predictions.filter(p => p.recommendation === "promotion")
-  const hold = predictions.filter(p => p.recommendation === "hold")
+  const increaseStock = teams.filter(t => t.recommendation?.action === "increase_stock")
+  const promotion = teams.filter(t => t.recommendation?.action === "promotion")
+  const maintain = teams.filter(t => t.recommendation?.action === "maintain")
 
-  const totalStock = predictions.reduce((sum, p) => sum + p.current_stock, 0)
-  const avgProbability = predictions.reduce((sum, p) => sum + p.probability_advance_quarters, 0) / predictions.length
+  const totalStock = teams.reduce((sum, t) => sum + (t.inventory?.current_stock ?? 0), 0)
+  const avgProbability = teams.length > 0 
+    ? teams.reduce((sum, t) => sum + (t.prediction?.probability_quarterfinals ?? 0), 0) / teams.length
+    : 0
 
-  const topTeams = [...predictions]
-    .sort((a, b) => b.probability_advance_quarters - a.probability_advance_quarters)
+  const topTeams = [...teams]
+    .filter(t => t.prediction)
+    .sort((a, b) => (b.prediction?.probability_quarterfinals ?? 0) - (a.prediction?.probability_quarterfinals ?? 0))
     .slice(0, 8)
-    .map(p => ({
-      name: p.team,
-      probability: Math.round(p.probability_advance_quarters * 100),
-      flag: p.flag_emoji
+    .map(t => ({
+      name: t.name,
+      probability: Math.round((t.prediction?.probability_quarterfinals ?? 0) * 100),
+      code: t.code
     }))
 
   const recommendationData = [
     { name: "Aumentar Stock", value: increaseStock.length, color: "#22c55e" },
     { name: "Promocion", value: promotion.length, color: "#f97316" },
-    { name: "Mantener", value: hold.length, color: "#6b7280" }
+    { name: "Mantener", value: maintain.length, color: "#6b7280" }
   ]
 
   return (
@@ -73,7 +76,7 @@ export function DashboardContent() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Aumentar Stock
             </CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-500" />
+            <TrendingUp className="h-4 w-4 text-accent" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">{increaseStock.length}</div>
@@ -103,7 +106,7 @@ export function DashboardContent() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Stock Total
             </CardTitle>
-            <Package className="h-4 w-4 text-blue-500" />
+            <Package className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">{totalStock.toLocaleString()}</div>
@@ -118,7 +121,7 @@ export function DashboardContent() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Prob. Promedio
             </CardTitle>
-            <TrendingDown className="h-4 w-4 text-purple-500" />
+            <TrendingDown className="h-4 w-4 text-chart-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">{Math.round(avgProbability * 100)}%</div>
