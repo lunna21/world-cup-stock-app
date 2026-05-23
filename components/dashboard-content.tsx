@@ -1,10 +1,12 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { usePredictions } from "@/hooks/use-predictions"
+import { usePredictions, useRecommendations } from "@/hooks/use-predictions"
 import { TrendingUp, TrendingDown, Package, Percent, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
+import { DemandHeatMap } from "@/components/demand-heat-map"
+import { ReportGenerator } from "@/components/report-generator"
 import {
   BarChart,
   Bar,
@@ -19,6 +21,7 @@ import {
 
 export function DashboardContent() {
   const { teams, lastUpdated, isLoading, refresh } = usePredictions()
+  const { recommendations } = useRecommendations()
 
   if (isLoading || !teams) {
     return (
@@ -63,10 +66,15 @@ export function DashboardContent() {
             Resumen de predicciones y recomendaciones para el Mundial 2026
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refresh()}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Actualizar datos
-        </Button>
+        <div className="flex gap-2">
+          {recommendations && recommendations.length > 0 && (
+            <ReportGenerator teams={teams} recommendations={recommendations} />
+          )}
+          <Button variant="outline" size="sm" onClick={() => refresh()}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Actualizar datos
+          </Button>
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -131,6 +139,9 @@ export function DashboardContent() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Heat Map */}
+      <DemandHeatMap teams={teams} />
 
       {/* Charts */}
       <div className="grid gap-6 lg:grid-cols-3">

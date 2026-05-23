@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { useRecommendations, usePredictions } from "@/hooks/use-predictions"
 import { Spinner } from "@/components/ui/spinner"
 import { TrendingUp, Percent, Pause, CheckCircle2, AlertTriangle } from "lucide-react"
+import { ReportGenerator } from "@/components/report-generator"
 import { cn } from "@/lib/utils"
 
 type FilterType = "all" | "increase_stock" | "promotion" | "maintain"
@@ -81,11 +82,14 @@ export function RecommendationsContent() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Recomendaciones de Stock</h1>
-        <p className="text-sm text-muted-foreground">
-          Acciones sugeridas basadas en las probabilidades del modelo ML
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Recomendaciones de Stock</h1>
+          <p className="text-sm text-muted-foreground">
+            Acciones sugeridas basadas en las probabilidades del modelo ML
+          </p>
+        </div>
+        <ReportGenerator teams={teams} recommendations={recommendations} />
       </div>
 
       {/* Summary Cards */}
