@@ -18,7 +18,7 @@ export function RecommendationsContent() {
 
   const isLoading = teamsLoading || recsLoading
 
-  if (isLoading) {
+  if (isLoading || !recommendations || !teams) {
     return (
       <div className="flex h-96 items-center justify-center">
         <Spinner className="h-8 w-8" />

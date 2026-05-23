@@ -25,7 +25,7 @@ export function PredictionsContent() {
   const [sortField, setSortField] = useState<SortField>("probability_quarterfinals")
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc")
 
-  if (isLoading) {
+  if (isLoading || !teams) {
     return (
       <div className="flex h-96 items-center justify-center">
         <Spinner className="h-8 w-8" />

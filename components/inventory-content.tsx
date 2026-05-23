@@ -20,7 +20,7 @@ export function InventoryContent() {
 
   const isLoading = teamsLoading || invLoading
 
-  if (isLoading) {
+  if (isLoading || !teams) {
     return (
       <div className="flex h-96 items-center justify-center">
         <Spinner className="h-8 w-8" />

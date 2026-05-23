@@ -20,7 +20,7 @@ import {
 export function DashboardContent() {
   const { teams, lastUpdated, isLoading, refresh } = usePredictions()
 
-  if (isLoading) {
+  if (isLoading || !teams) {
     return (
       <div className="flex h-96 items-center justify-center">
         <Spinner className="h-8 w-8" />
