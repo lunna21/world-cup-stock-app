@@ -1,10 +1,12 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { usePredictions } from "@/hooks/use-predictions"
+import { usePredictions, useRecommendations } from "@/hooks/use-predictions"
 import { TrendingUp, TrendingDown, Package, Percent, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
+import { DemandHeatMap } from "@/components/demand-heat-map"
+import { ReportGenerator } from "@/components/report-generator"
 import {
   BarChart,
   Bar,
@@ -18,9 +20,10 @@ import {
 } from "recharts"
 
 export function DashboardContent() {
-  const { predictions, lastUpdated, isLoading, refresh } = usePredictions()
+  const { teams, lastUpdated, isLoading, refresh } = usePredictions()
+  const { recommendations } = useRecommendations()
 
-  if (isLoading) {
+  if (isLoading || !teams) {
     return (
       <div className="flex h-96 items-center justify-center">
         <Spinner className="h-8 w-8" />
@@ -28,26 +31,29 @@ export function DashboardContent() {
     )
   }
 
-  const increaseStock = predictions.filter(p => p.recommendation === "increase_stock")
-  const promotion = predictions.filter(p => p.recommendation === "promotion")
-  const hold = predictions.filter(p => p.recommendation === "hold")
+  const increaseStock = teams.filter(t => t.recommendation?.action === "increase_stock")
+  const promotion = teams.filter(t => t.recommendation?.action === "promotion")
+  const maintain = teams.filter(t => t.recommendation?.action === "maintain")
 
-  const totalStock = predictions.reduce((sum, p) => sum + p.current_stock, 0)
-  const avgProbability = predictions.reduce((sum, p) => sum + p.probability_advance_quarters, 0) / predictions.length
+  const totalStock = teams.reduce((sum, t) => sum + (t.inventory?.current_stock ?? 0), 0)
+  const avgProbability = teams.length > 0 
+    ? teams.reduce((sum, t) => sum + (t.prediction?.probability_quarterfinals ?? 0), 0) / teams.length
+    : 0
 
-  const topTeams = [...predictions]
-    .sort((a, b) => b.probability_advance_quarters - a.probability_advance_quarters)
+  const topTeams = [...teams]
+    .filter(t => t.prediction)
+    .sort((a, b) => (b.prediction?.probability_quarterfinals ?? 0) - (a.prediction?.probability_quarterfinals ?? 0))
     .slice(0, 8)
-    .map(p => ({
-      name: p.team,
-      probability: Math.round(p.probability_advance_quarters * 100),
-      flag: p.flag_emoji
+    .map(t => ({
+      name: t.name,
+      probability: Math.round((t.prediction?.probability_quarterfinals ?? 0) * 100),
+      code: t.code
     }))
 
   const recommendationData = [
     { name: "Aumentar Stock", value: increaseStock.length, color: "#22c55e" },
     { name: "Promocion", value: promotion.length, color: "#f97316" },
-    { name: "Mantener", value: hold.length, color: "#6b7280" }
+    { name: "Mantener", value: maintain.length, color: "#6b7280" }
   ]
 
   return (
@@ -60,10 +66,15 @@ export function DashboardContent() {
             Resumen de predicciones y recomendaciones para el Mundial 2026
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refresh()}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Actualizar datos
-        </Button>
+        <div className="flex gap-2">
+          {recommendations && recommendations.length > 0 && (
+            <ReportGenerator teams={teams} recommendations={recommendations} />
+          )}
+          <Button variant="outline" size="sm" onClick={() => refresh()}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Actualizar datos
+          </Button>
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -73,7 +84,7 @@ export function DashboardContent() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Aumentar Stock
             </CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-500" />
+            <TrendingUp className="h-4 w-4 text-accent" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">{increaseStock.length}</div>
@@ -103,7 +114,7 @@ export function DashboardContent() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Stock Total
             </CardTitle>
-            <Package className="h-4 w-4 text-blue-500" />
+            <Package className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">{totalStock.toLocaleString()}</div>
@@ -118,7 +129,7 @@ export function DashboardContent() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Prob. Promedio
             </CardTitle>
-            <TrendingDown className="h-4 w-4 text-purple-500" />
+            <TrendingDown className="h-4 w-4 text-chart-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">{Math.round(avgProbability * 100)}%</div>
@@ -128,6 +139,9 @@ export function DashboardContent() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Heat Map */}
+      <DemandHeatMap teams={teams} />
 
       {/* Charts */}
       <div className="grid gap-6 lg:grid-cols-3">
