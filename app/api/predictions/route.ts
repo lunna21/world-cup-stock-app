@@ -2,13 +2,32 @@ import { NextResponse } from "next/server"
 import { mockPredictions } from "@/lib/mock-data"
 import type { PredictionResponse } from "@/lib/types"
 
-export async function GET() {
-  // Simulates response from ML model API
-  const response: PredictionResponse = {
-    predictions: mockPredictions,
-    last_updated: new Date().toISOString(),
-    model_version: "v2.3.1-worldcup2026"
-  }
+const DEFAULT_API_URL = "https://world-cup-stock-api-qqes.onrender.com/predictions"
 
-  return NextResponse.json(response)
+export async function GET() {
+  const apiUrl = process.env.EXTERNAL_PREDICTIONS_URL ?? DEFAULT_API_URL
+
+  try {
+    const res = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify([]),
+      cache: "no-store"
+    })
+
+    if (!res.ok) {
+      throw new Error(`Remote API error: ${res.status}`)
+    }
+
+    const data = (await res.json()) as PredictionResponse
+    return NextResponse.json(data)
+  } catch {
+    const fallback: PredictionResponse = {
+      predictions: mockPredictions,
+      last_updated: new Date().toISOString(),
+      model_version: "fallback-mock"
+    }
+
+    return NextResponse.json(fallback)
+  }
 }
