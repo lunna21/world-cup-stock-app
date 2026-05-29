@@ -1,82 +1,100 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { usePredictions, useInventory } from "@/hooks/use-predictions"
-import { Spinner } from "@/components/ui/spinner"
-import { Search, Shirt, TrendingUp, Percent, Edit2, Check, X } from "lucide-react"
-import { cn } from "@/lib/utils"
-import type { TeamWithDetails } from "@/lib/types"
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { usePredictions, useInventory } from "@/hooks/use-predictions";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  Search,
+  Shirt,
+  TrendingUp,
+  Percent,
+  Edit2,
+  Check,
+  X,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { TeamWithDetails } from "@/lib/types";
 
 export function InventoryContent() {
-  const { teams, isLoading: teamsLoading } = usePredictions()
-  const { updateStock, isLoading: invLoading } = useInventory()
-  const [search, setSearch] = useState("")
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editValue, setEditValue] = useState("")
-  const [saving, setSaving] = useState(false)
+  const { teams, isLoading: teamsLoading } = usePredictions();
+  const { updateStock, isLoading: invLoading } = useInventory();
+  const [search, setSearch] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const isLoading = teamsLoading || invLoading
+  const isLoading = teamsLoading || invLoading;
 
   if (isLoading || !teams) {
     return (
       <div className="flex h-96 items-center justify-center">
         <Spinner className="h-8 w-8" />
       </div>
-    )
+    );
   }
 
-  const filteredTeams = teams.filter(t =>
-    t.name.toLowerCase().includes(search.toLowerCase())
-  )
+  const filteredTeams = teams.filter((t) =>
+    t.name.toLowerCase().includes(search.toLowerCase()),
+  );
 
   const handleEditStart = (team: TeamWithDetails) => {
-    setEditingId(team.id)
-    setEditValue((team.inventory?.current_stock ?? 0).toString())
-  }
+    setEditingId(team.id);
+    setEditValue((team.inventory?.current_stock ?? 0).toString());
+  };
 
   const handleEditSave = async (teamId: string) => {
-    const newValue = parseInt(editValue, 10)
+    const newValue = parseInt(editValue, 10);
     if (!isNaN(newValue) && newValue >= 0) {
-      setSaving(true)
-      await updateStock(teamId, newValue)
-      setSaving(false)
+      setSaving(true);
+      await updateStock(teamId, newValue);
+      setSaving(false);
     }
-    setEditingId(null)
-  }
+    setEditingId(null);
+  };
 
   const handleEditCancel = () => {
-    setEditingId(null)
-    setEditValue("")
-  }
+    setEditingId(null);
+    setEditValue("");
+  };
 
-  const totalStock = teams.reduce((sum, t) => sum + (t.inventory?.current_stock ?? 0), 0)
-  const avgStock = teams.length > 0 ? Math.round(totalStock / teams.length) : 0
+  const totalStock = teams.reduce(
+    (sum, t) => sum + (t.inventory?.current_stock ?? 0),
+    0,
+  );
+  const avgStock = teams.length > 0 ? Math.round(totalStock / teams.length) : 0;
 
   const getStockStatus = (team: TeamWithDetails) => {
-    const stock = team.inventory?.current_stock ?? 0
-    const status = team.inventory?.status ?? 'normal'
+    const stock = team.inventory?.current_stock ?? 0;
+    const status = team.inventory?.status ?? "normal";
 
-    if (status === 'out_of_stock') return { label: "Sin stock", color: "text-red-600 bg-red-50" }
-    if (status === 'low') return { label: "Stock bajo", color: "text-orange-600 bg-orange-50" }
-    if (status === 'overstocked') return { label: "Exceso", color: "text-yellow-600 bg-yellow-50" }
-    
+    if (status === "out_of_stock")
+      return { label: "Sin stock", color: "text-red-600 bg-red-50" };
+    if (status === "low")
+      return { label: "Stock bajo", color: "text-orange-600 bg-orange-50" };
+    if (status === "overstocked")
+      return { label: "Exceso", color: "text-yellow-600 bg-yellow-50" };
+
     if (team.recommendation?.action === "increase_stock") {
-      if (stock < 100) return { label: "Stock bajo", color: "text-red-600 bg-red-50" }
-      if (stock < 200) return { label: "Stock medio", color: "text-yellow-600 bg-yellow-50" }
-      return { label: "Stock alto", color: "text-accent bg-accent/10" }
+      if (stock < 100)
+        return { label: "Stock bajo", color: "text-red-600 bg-red-50" };
+      if (stock < 200)
+        return { label: "Stock medio", color: "text-yellow-600 bg-yellow-50" };
+      return { label: "Stock alto", color: "text-accent bg-accent/10" };
     }
-    
-    return { label: "Normal", color: "text-muted-foreground bg-muted" }
-  }
+
+    return { label: "Normal", color: "text-muted-foreground bg-muted" };
+  };
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Inventario de Camisetas</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          Inventario de Camisetas
+        </h1>
         <p className="text-sm text-muted-foreground">
           Gestiona el stock de camisetas por seleccion del Mundial 2026
         </p>
@@ -90,7 +108,9 @@ export function InventoryContent() {
               <Shirt className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-foreground">{totalStock.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-foreground">
+                {totalStock.toLocaleString()}
+              </p>
               <p className="text-sm text-muted-foreground">Stock Total</p>
             </div>
           </CardContent>
@@ -103,7 +123,9 @@ export function InventoryContent() {
             </div>
             <div>
               <p className="text-2xl font-bold text-foreground">{avgStock}</p>
-              <p className="text-sm text-muted-foreground">Promedio por Seleccion</p>
+              <p className="text-sm text-muted-foreground">
+                Promedio por Seleccion
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -114,8 +136,12 @@ export function InventoryContent() {
               <Percent className="h-6 w-6 text-chart-4" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-foreground">{teams.length}</p>
-              <p className="text-sm text-muted-foreground">Selecciones en Catalogo</p>
+              <p className="text-2xl font-bold text-foreground">
+                {teams.length}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Selecciones en Catalogo
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -154,9 +180,9 @@ export function InventoryContent() {
               </thead>
               <tbody className="divide-y">
                 {filteredTeams.map((team) => {
-                  const stockStatus = getStockStatus(team)
-                  const currentStock = team.inventory?.current_stock ?? 0
-                  const isEditing = editingId === team.id
+                  const stockStatus = getStockStatus(team);
+                  const currentStock = team.inventory?.current_stock ?? 0;
+                  const isEditing = editingId === team.id;
 
                   return (
                     <tr key={team.id} className="text-sm">
@@ -165,16 +191,29 @@ export function InventoryContent() {
                           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
                             {team.code}
                           </div>
-                          <span className="font-medium text-foreground">{team.name}</span>
+                          <span className="font-medium text-foreground">
+                            {team.name}
+                          </span>
                         </div>
                       </td>
-                      <td className="py-3 text-muted-foreground">{team.confederation || '-'}</td>
+                      <td className="py-3 text-muted-foreground">
+                        {team.confederation || "-"}
+                      </td>
                       <td className="py-3">
-                        <span className={cn(
-                          "font-medium",
-                          (team.prediction?.probability_quarterfinals ?? 0) >= 0.5 ? "text-accent" : "text-orange-600"
-                        )}>
-                          {Math.round((team.prediction?.probability_quarterfinals ?? 0) * 100)}%
+                        <span
+                          className={cn(
+                            "font-medium",
+                            (team.prediction?.probability_quarterfinals ?? 0) >=
+                              0.5
+                              ? "text-accent"
+                              : "text-orange-600",
+                          )}
+                        >
+                          {Math.round(
+                            (team.prediction?.probability_quarterfinals ?? 0) *
+                              100,
+                          )}
+                          %
                         </span>
                       </td>
                       <td className="py-3">
@@ -187,14 +226,21 @@ export function InventoryContent() {
                             autoFocus
                           />
                         ) : (
-                          <span className="font-medium text-foreground">{currentStock}</span>
+                          <span className="font-medium text-foreground">
+                            {currentStock}
+                          </span>
                         )}
                       </td>
                       <td className="py-3 text-muted-foreground">
-                        ${team.inventory?.unit_price?.toFixed(2) ?? '0.00'}
+                        ${team.inventory?.unit_price?.toFixed(2) ?? "0.00"}
                       </td>
                       <td className="py-3">
-                        <span className={cn("rounded-full px-2 py-1 text-xs font-medium", stockStatus.color)}>
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-1 text-xs font-medium",
+                            stockStatus.color,
+                          )}
+                        >
                           {stockStatus.label}
                         </span>
                       </td>
@@ -209,11 +255,13 @@ export function InventoryContent() {
                           {team.recommendation?.action === "promotion" && (
                             <>
                               <Percent className="h-4 w-4 text-orange-600" />
-                              <span className="text-orange-600">Promocion</span>
+                              <span className="text-orange-600">Promoción</span>
                             </>
                           )}
                           {team.recommendation?.action === "maintain" && (
-                            <span className="text-muted-foreground">Mantener</span>
+                            <span className="text-muted-foreground">
+                              Mantener
+                            </span>
                           )}
                           {!team.recommendation && (
                             <span className="text-muted-foreground">-</span>
@@ -229,7 +277,11 @@ export function InventoryContent() {
                               onClick={() => handleEditSave(team.id)}
                               disabled={saving}
                             >
-                              {saving ? <Spinner className="h-4 w-4" /> : <Check className="h-4 w-4 text-accent" />}
+                              {saving ? (
+                                <Spinner className="h-4 w-4" />
+                              ) : (
+                                <Check className="h-4 w-4 text-accent" />
+                              )}
                             </Button>
                             <Button
                               variant="ghost"
@@ -250,7 +302,7 @@ export function InventoryContent() {
                         )}
                       </td>
                     </tr>
-                  )
+                  );
                 })}
               </tbody>
             </table>
@@ -258,11 +310,13 @@ export function InventoryContent() {
 
           {filteredTeams.length === 0 && (
             <div className="py-8 text-center">
-              <p className="text-muted-foreground">No se encontraron selecciones.</p>
+              <p className="text-muted-foreground">
+                No se encontraron selecciones.
+              </p>
             </div>
           )}
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
