@@ -2,8 +2,6 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import type { PredictionResponse, TeamWithDetails } from "@/lib/types"
 
-const DEFAULT_API_URL = "https://world-cup-stock-api-qqes.onrender.com/predictions"
-
 export async function GET() {
   const supabase = await createClient()
 
@@ -80,19 +78,5 @@ export async function GET() {
     model_version: "v2.3.1-worldcup2026"
   }
 
-    if (!res.ok) {
-      throw new Error(`Remote API error: ${res.status}`)
-    }
-
-    const data = (await res.json()) as PredictionResponse
-    return NextResponse.json(data)
-  } catch {
-    const fallback: PredictionResponse = {
-      predictions: mockPredictions,
-      last_updated: new Date().toISOString(),
-      model_version: "fallback-mock"
-    }
-
-    return NextResponse.json(fallback)
-  }
+  return NextResponse.json(response)
 }
