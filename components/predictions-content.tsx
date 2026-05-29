@@ -14,17 +14,18 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import type { TeamWithDetails } from "@/lib/types"
 
-type SortField = "team" | "probability_advance_quarters" | "probability_champion"
+type SortField = "name" | "probability_quarterfinals" | "probability_champion"
 type SortOrder = "asc" | "desc"
 
 export function PredictionsContent() {
-  const { predictions, modelVersion, isLoading } = usePredictions()
+  const { teams, modelVersion, isLoading } = usePredictions()
   const [search, setSearch] = useState("")
-  const [sortField, setSortField] = useState<SortField>("probability_advance_quarters")
+  const [sortField, setSortField] = useState<SortField>("probability_quarterfinals")
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc")
 
-  if (isLoading) {
+  if (isLoading || !teams) {
     return (
       <div className="flex h-96 items-center justify-center">
         <Spinner className="h-8 w-8" />
@@ -32,11 +33,18 @@ export function PredictionsContent() {
     )
   }
 
-  const filteredPredictions = predictions
-    .filter(p => p.team.toLowerCase().includes(search.toLowerCase()))
+  const getSortValue = (team: TeamWithDetails, field: SortField): number | string => {
+    if (field === "name") return team.name
+    if (field === "probability_quarterfinals") return team.prediction?.probability_quarterfinals ?? 0
+    if (field === "probability_champion") return team.prediction?.probability_champion ?? 0
+    return 0
+  }
+
+  const filteredTeams = teams
+    .filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
-      const aVal = a[sortField]
-      const bVal = b[sortField]
+      const aVal = getSortValue(a, sortField)
+      const bVal = getSortValue(b, sortField)
       if (typeof aVal === "string" && typeof bVal === "string") {
         return sortOrder === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
       }
@@ -71,15 +79,15 @@ export function PredictionsContent() {
       </div>
 
       {/* Info Card */}
-      <Card className="border-blue-200 bg-blue-50/50">
+      <Card className="border-primary/20 bg-primary/5">
         <CardContent className="flex items-start gap-3 py-4">
-          <Info className="mt-0.5 h-5 w-5 text-blue-600" />
+          <Info className="mt-0.5 h-5 w-5 text-primary" />
           <div className="text-sm">
-            <p className="font-medium text-blue-900">Criterio de Decision</p>
-            <p className="text-blue-700">
+            <p className="font-medium text-foreground">Criterio de Decision</p>
+            <p className="text-muted-foreground">
               Las selecciones con probabilidad mayor al 50% de avanzar de cuartos de final se recomiendan para 
-              <span className="font-semibold"> aumentar stock</span>. Las que tienen menos del 50% se consideran para 
-              <span className="font-semibold"> promocion</span> cuando sean eliminadas.
+              <span className="font-semibold text-accent"> aumentar stock</span>. Las que tienen menos del 50% se consideran para 
+              <span className="font-semibold text-orange-600"> promocion</span> cuando sean eliminadas.
             </p>
           </div>
         </CardContent>
@@ -98,9 +106,9 @@ export function PredictionsContent() {
         </div>
         <div className="flex gap-2">
           <Button
-            variant={sortField === "probability_advance_quarters" ? "default" : "outline"}
+            variant={sortField === "probability_quarterfinals" ? "default" : "outline"}
             size="sm"
-            onClick={() => handleSort("probability_advance_quarters")}
+            onClick={() => handleSort("probability_quarterfinals")}
           >
             <ArrowUpDown className="mr-2 h-4 w-4" />
             Por Prob. Cuartos
@@ -118,15 +126,17 @@ export function PredictionsContent() {
 
       {/* Predictions Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filteredPredictions.map((prediction) => (
-          <Card key={prediction.id} className="overflow-hidden">
+        {filteredTeams.map((team) => (
+          <Card key={team.id} className="overflow-hidden">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="text-3xl">{prediction.flag_emoji}</span>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-lg font-bold text-muted-foreground">
+                    {team.code}
+                  </div>
                   <div>
-                    <CardTitle className="text-base">{prediction.team}</CardTitle>
-                    <span className="text-xs text-muted-foreground">Grupo {prediction.group}</span>
+                    <CardTitle className="text-base">{team.name}</CardTitle>
+                    <span className="text-xs text-muted-foreground">{team.confederation}</span>
                   </div>
                 </div>
                 <TooltipProvider>
@@ -134,11 +144,11 @@ export function PredictionsContent() {
                     <TooltipTrigger>
                       <div className={cn(
                         "rounded-full px-2 py-1 text-xs font-medium",
-                        prediction.probability_advance_quarters >= 0.5 
-                          ? "bg-green-100 text-green-700"
+                        (team.prediction?.probability_quarterfinals ?? 0) >= 0.5 
+                          ? "bg-accent/20 text-accent"
                           : "bg-orange-100 text-orange-700"
                       )}>
-                        {prediction.probability_advance_quarters >= 0.5 ? "Avanza" : "En riesgo"}
+                        {(team.prediction?.probability_quarterfinals ?? 0) >= 0.5 ? "Avanza" : "En riesgo"}
                       </div>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -150,73 +160,77 @@ export function PredictionsContent() {
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Probability Bars */}
-              <div className="space-y-3">
-                <div>
-                  <div className="mb-1 flex justify-between text-xs">
-                    <span className="text-muted-foreground">Cuartos de Final</span>
-                    <span className={cn("font-medium", getProbabilityColor(prediction.probability_advance_quarters))}>
-                      {Math.round(prediction.probability_advance_quarters * 100)}%
-                    </span>
+              {team.prediction ? (
+                <div className="space-y-3">
+                  <div>
+                    <div className="mb-1 flex justify-between text-xs">
+                      <span className="text-muted-foreground">Cuartos de Final</span>
+                      <span className={cn("font-medium", getProbabilityColor(team.prediction.probability_quarterfinals))}>
+                        {Math.round(team.prediction.probability_quarterfinals * 100)}%
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-accent transition-all"
+                        style={{ width: getProbabilityBarWidth(team.prediction.probability_quarterfinals) }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-green-500 transition-all"
-                      style={{ width: getProbabilityBarWidth(prediction.probability_advance_quarters) }}
-                    />
-                  </div>
-                </div>
 
-                <div>
-                  <div className="mb-1 flex justify-between text-xs">
-                    <span className="text-muted-foreground">Semifinales</span>
-                    <span className="font-medium text-foreground">
-                      {Math.round(prediction.probability_advance_semis * 100)}%
-                    </span>
+                  <div>
+                    <div className="mb-1 flex justify-between text-xs">
+                      <span className="text-muted-foreground">Semifinales</span>
+                      <span className="font-medium text-foreground">
+                        {Math.round(team.prediction.probability_semifinals * 100)}%
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all"
+                        style={{ width: getProbabilityBarWidth(team.prediction.probability_semifinals) }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-blue-500 transition-all"
-                      style={{ width: getProbabilityBarWidth(prediction.probability_advance_semis) }}
-                    />
-                  </div>
-                </div>
 
-                <div>
-                  <div className="mb-1 flex justify-between text-xs">
-                    <span className="text-muted-foreground">Final</span>
-                    <span className="font-medium text-foreground">
-                      {Math.round(prediction.probability_advance_final * 100)}%
-                    </span>
+                  <div>
+                    <div className="mb-1 flex justify-between text-xs">
+                      <span className="text-muted-foreground">Final</span>
+                      <span className="font-medium text-foreground">
+                        {Math.round(team.prediction.probability_final * 100)}%
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-chart-4 transition-all"
+                        style={{ width: getProbabilityBarWidth(team.prediction.probability_final) }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-purple-500 transition-all"
-                      style={{ width: getProbabilityBarWidth(prediction.probability_advance_final) }}
-                    />
-                  </div>
-                </div>
 
-                <div>
-                  <div className="mb-1 flex justify-between text-xs">
-                    <span className="text-muted-foreground">Campeon</span>
-                    <span className="font-medium text-foreground">
-                      {Math.round(prediction.probability_champion * 100)}%
-                    </span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-amber-500 transition-all"
-                      style={{ width: getProbabilityBarWidth(prediction.probability_champion) }}
-                    />
+                  <div>
+                    <div className="mb-1 flex justify-between text-xs">
+                      <span className="text-muted-foreground">Campeon</span>
+                      <span className="font-medium text-foreground">
+                        {Math.round(team.prediction.probability_champion * 100)}%
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-chart-3 transition-all"
+                        style={{ width: getProbabilityBarWidth(team.prediction.probability_champion) }}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Sin predicciones disponibles</p>
+              )}
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {filteredPredictions.length === 0 && (
+      {filteredTeams.length === 0 && (
         <div className="py-12 text-center">
           <p className="text-muted-foreground">No se encontraron selecciones con ese nombre.</p>
         </div>
